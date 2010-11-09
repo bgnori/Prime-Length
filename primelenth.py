@@ -13,27 +13,47 @@ class Result:
   def __init__(self, timing, roll):
     self.timing = timing
     self.roll = roll
-
-def find_move(position, rolled):
-  '''
-    Returns (position, delta_timing)
-  '''
-  b = BoardEditor()
-  pid, mid = position.split(':')
-  decode(b, pid, mid)
-  b.game_state = ON_GOING
-  b.rolled = rolled
-  #print b
-  mf = MoveFactory(b)
-  if mf.is_leagal_to_pickup_dice():
-    if rolled[0] == rolled[1]:
-      dt = rolled[0] * 4
-    else:
-      dt = rolled[0]+rolled[1]
-    return position, dt
-  return "2LYBAAAAAAAAAA:cAkgAAAAAAAA", 0
+  def __add__(self, other):
+    return Result(self.timing + other.timing, self.roll+ other.roll)
 
 
+
+class Trial:
+  def __init__(self, initial):
+    self.position = initial
+    self.board = BoardEditor()
+    self.board.game_state = ON_GOING
+    self.result = Result(0, 0)
+    self.rolled = (0, 0)
+
+  def roll(self):
+    self.rolled = random.randint(1, 6), random.randint(1, 6)
+    self.result.roll += 1
+
+  def find_move(self):
+    '''
+      Returns (position, delta_timing)
+    '''
+    pid, mid = self.position.split(':')
+    decode(self.board, pid, mid)
+    self.board.rolled = self.rolled
+    mf = MoveFactory(self.board)
+    if mf.is_leagal_to_pickup_dice():
+      if self.rolled[0] == self.rolled[1]:
+        dt = self.rolled[0] * 4
+      else:
+        dt = self.rolled[0] + self.rolled[1]
+      return position, dt
+    return "2LYBAAAAAAAAAA:cAkgAAAAAAAA", 0
+
+  def iterate(self):
+    self.roll()
+    next, dt = self.find_move()
+    if self.position == next:
+      self.result.timing += dt
+      return True
+    self.position = next
+    return False
 
 
 
@@ -43,7 +63,7 @@ db = {"2LYBAAAAAAAAAA:cAkgAAAAAAAA": Result(0, 0) }
 
 assert "2LYBAAAAAAAAAA:cAkgAAAAAAAA" in db
 
-Ntrial = 100000
+Ntrial = 1000000
 for i in range(Ntrial):
   position = "2LYBAAAAAAEAAA:cAkgAAAAAAAA" 
   "one checker behind the five prime"
@@ -52,21 +72,12 @@ for i in range(Ntrial):
     position = "2LYBAAAAAAMAAA:cAkgAAAAAAAA"
     "two checkers behind the five prime"
   '''
-  timing = 0
-  c = 0
-  while True:
-    r = random.randint(1, 6), random.randint(1, 6)
-    c += 1
-    next, dt = find_move(position, r)
-    if position == next:
-      timing += dt
-      print 'dt is', dt
-      continue
-    position = next
-    if position not in db:
-      raise 'postion error'
-    results.append(Result(db[position].timing + timing, db[position].roll + c))
-    break
+  t = Trial(position)
+  while t.iterate():
+    pass
+  if t.position not in db:
+    raise 'postion error'
+  results.append(db[t.position] + t.result)
 
 f = open('stat', 'w')
 
